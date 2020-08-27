@@ -298,7 +298,8 @@ func (t *Tar) writeWalk(source, topLevelFolder, destination string) error {
 				FileInfo:   info,
 				CustomName: nameInArchive,
 			},
-			ReadCloser: file,
+			FullFilePath: fpath,
+			ReadCloser:   file,
 		})
 		if err != nil {
 			return handleErr(fmt.Errorf("%s: writing: %s", fpath, err))
@@ -343,9 +344,9 @@ func (t *Tar) Write(f File) error {
 	var linkTarget string
 	if isSymlink(f) {
 		var err error
-		linkTarget, err = os.Readlink(f.Name())
+		linkTarget, err = os.Readlink(f.FullFilePath)
 		if err != nil {
-			return fmt.Errorf("%s: readlink: %v", f.Name(), err)
+			return fmt.Errorf("%s: readlink: %v", f.FullFilePath, err)
 		}
 	}
 

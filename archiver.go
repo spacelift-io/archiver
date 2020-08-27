@@ -105,6 +105,8 @@ type Extractor interface {
 type File struct {
 	os.FileInfo
 
+	FullFilePath string
+
 	// The original header info; depends on
 	// type of archive -- could be nil, too.
 	Header interface{}
