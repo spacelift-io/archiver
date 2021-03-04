@@ -246,7 +246,7 @@ func (t *Tar) untarFile(f File, to string) error {
 }
 
 func (t *Tar) writeWalk(source, topLevelFolder, destination string) error {
-	sourceInfo, err := os.Stat(source)
+	sourceInfo, err := os.Lstat(source)
 	if err != nil {
 		return fmt.Errorf("%s: stat: %v", source, err)
 	}
