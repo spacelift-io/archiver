@@ -44,6 +44,8 @@ type Tar struct {
 	// or writing a single file will be logged and
 	// the operation will continue on remaining files.
 	ContinueOnError bool
+	
+	MatchFn func(filePath string) bool
 
 	tw *tar.Writer
 	tr *tar.Reader
@@ -277,6 +279,12 @@ func (t *Tar) writeWalk(source, topLevelFolder, destination string) error {
 		}
 		if within(fpathAbs, destAbs) {
 			return nil
+		}
+		
+		if info.Mode().IsRegular() {
+			if t.MatchFn != nil && !t.MatchFn(fpath) {
+				return nil
+			}
 		}
 
 		// build the name to be used within the archive
