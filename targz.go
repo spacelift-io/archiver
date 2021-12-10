@@ -81,6 +81,14 @@ func (tgz *TarGz) Extract(source, target, destination string) error {
 	return tgz.Tar.Extract(source, target, destination)
 }
 
+// ExtractReader extracts a single file from the tar archive in the reader.
+// If the target is a directory, the entire folder will
+// be extracted into destination.
+func (tgz *TarGz) ExtractReader(source io.Reader, target, destination string) error {
+	tgz.wrapReader()
+	return tgz.Tar.ExtractReader(source, target, destination)
+}
+
 func (tgz *TarGz) wrapWriter() {
 	var gzw io.WriteCloser
 	tgz.Tar.writerWrapFn = func(w io.Writer) (io.Writer, error) {

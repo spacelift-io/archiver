@@ -44,7 +44,7 @@ type Tar struct {
 	// or writing a single file will be logged and
 	// the operation will continue on remaining files.
 	ContinueOnError bool
-	
+
 	MatchFn func(filePath string) bool
 
 	tw *tar.Writer
@@ -280,7 +280,7 @@ func (t *Tar) writeWalk(source, topLevelFolder, destination string) error {
 		if within(fpathAbs, destAbs) {
 			return nil
 		}
-		
+
 		if info.Mode().IsRegular() || info.Mode().IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			if t.MatchFn != nil && !t.MatchFn(fpath) {
 				return nil
@@ -488,6 +488,42 @@ func (t *Tar) Walk(archive string, walkFn WalkFunc) error {
 	return nil
 }
 
+// Walk calls walkFn for each visited item in archive.
+func (t *Tar) WalkReader(file io.Reader, walkFn WalkFunc) error {
+	err := t.Open(file, 0)
+	if err != nil {
+		return fmt.Errorf("opening archive: %v", err)
+	}
+	defer t.Close()
+
+	for {
+		f, err := t.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if t.ContinueOnError {
+				log.Printf("[ERROR] Opening next file: %v", err)
+				continue
+			}
+			return fmt.Errorf("opening next file: %v", err)
+		}
+		err = walkFn(f)
+		if err != nil {
+			if err == ErrStopWalk {
+				break
+			}
+			if t.ContinueOnError {
+				log.Printf("[ERROR] Walking %s: %v", f.Name(), err)
+				continue
+			}
+			return fmt.Errorf("walking %s: %v", f.Name(), err)
+		}
+	}
+
+	return nil
+}
+
 // Extract extracts a single file from the tar archive.
 // If the target is a directory, the entire folder will
 // be extracted into destination.
@@ -501,6 +537,60 @@ func (t *Tar) Extract(source, target, destination string) error {
 	var targetDirPath string
 
 	return t.Walk(source, func(f File) error {
+		th, ok := f.Header.(*tar.Header)
+		if !ok {
+			return fmt.Errorf("expected header to be *tar.Header but was %T", f.Header)
+		}
+
+		// importantly, cleaning the path strips tailing slash,
+		// which must be appended to folders within the archive
+		name := path.Clean(th.Name)
+		if f.IsDir() && target == name {
+			targetDirPath = path.Dir(name)
+		}
+
+		if within(target, th.Name) {
+			// either this is the exact file we want, or is
+			// in the directory we want to extract
+
+			// build the filename we will extract to
+			end, err := filepath.Rel(targetDirPath, th.Name)
+			if err != nil {
+				return fmt.Errorf("relativizing paths: %v", err)
+			}
+			joined := filepath.Join(destination, end)
+
+			err = t.untarFile(f, joined)
+			if err != nil {
+				return fmt.Errorf("extracting file %s: %v", th.Name, err)
+			}
+
+			// if our target was not a directory, stop walk
+			if targetDirPath == "" {
+				return ErrStopWalk
+			}
+		} else if targetDirPath != "" {
+			// finished walking the entire directory
+			return ErrStopWalk
+		}
+
+		return nil
+	})
+}
+
+// Extract extracts a single file from the tar archive in the reader.
+// If the target is a directory, the entire folder will
+// be extracted into destination.
+func (t *Tar) ExtractReader(source io.Reader, target, destination string) error {
+	// target refers to a path inside the archive, which should be clean also
+	target = path.Clean(target)
+
+	// if the target ends up being a directory, then
+	// we will continue walking and extracting files
+	// until we are no longer within that directory
+	var targetDirPath string
+
+	return t.WalkReader(source, func(f File) error {
 		th, ok := f.Header.(*tar.Header)
 		if !ok {
 			return fmt.Errorf("expected header to be *tar.Header but was %T", f.Header)
