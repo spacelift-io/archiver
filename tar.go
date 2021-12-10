@@ -163,6 +163,39 @@ func (t *Tar) Unarchive(source, destination string) error {
 	return nil
 }
 
+// UnarchiveReader unpacks the .tar file from the reader to destination.
+// Destination will be treated as a folder name.
+func (t *Tar) UnarchiveReader(file io.Reader, destination string) error {
+	if !fileExists(destination) && t.MkdirAll {
+		err := mkdir(destination, 0755)
+		if err != nil {
+			return fmt.Errorf("preparing destination: %v", err)
+		}
+	}
+
+	err := t.Open(file, 0)
+	if err != nil {
+		return fmt.Errorf("opening tar archive for reading: %v", err)
+	}
+	defer t.Close()
+
+	for {
+		err := t.untarNext(destination)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if t.ContinueOnError {
+				log.Printf("[ERROR] Reading file in tar archive: %v", err)
+				continue
+			}
+			return fmt.Errorf("reading file in tar archive: %v", err)
+		}
+	}
+
+	return nil
+}
+
 // addTopLevelFolder scans the files contained inside
 // the tarball named sourceArchive and returns a modified
 // destination if all the files do not share the same
