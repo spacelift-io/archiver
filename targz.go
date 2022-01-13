@@ -97,6 +97,12 @@ func (tgz *TarGz) ExtractReader(source io.Reader, target, destination string) er
 	return tgz.Tar.ExtractReader(source, target, destination)
 }
 
+// ExtractReaderMatcher extracts files matching the provided function and into the relative destination returned by the function.
+func (tgz *TarGz) ExtractReaderMatcher(source io.Reader, translateFn func(string) (string, bool), destination string) error {
+	tgz.wrapReader()
+	return tgz.Tar.ExtractReaderMatcher(source, translateFn, destination)
+}
+
 func (tgz *TarGz) wrapWriter() {
 	var gzw io.WriteCloser
 	tgz.Tar.writerWrapFn = func(w io.Writer) (io.Writer, error) {

@@ -665,6 +665,27 @@ func (t *Tar) ExtractReader(source io.Reader, target, destination string) error 
 	})
 }
 
+// ExtractReaderMatcher extracts files matching the provided function and into the relative destination returned by the function.
+func (t *Tar) ExtractReaderMatcher(source io.Reader, translateFn func(string) (string, bool), destination string) error {
+	return t.WalkReader(source, func(f File) error {
+		th, ok := f.Header.(*tar.Header)
+		if !ok {
+			return fmt.Errorf("expected header to be *tar.Header but was %T", f.Header)
+		}
+
+		if newPath, match := translateFn(th.Name); match {
+			joined := filepath.Join(destination, newPath)
+
+			err := t.untarFile(f, joined)
+			if err != nil {
+				return fmt.Errorf("extracting file %s: %v", th.Name, err)
+			}
+		}
+
+		return nil
+	})
+}
+
 // Match returns true if the format of file matches this
 // type's format. It should not affect reader position.
 func (*Tar) Match(file io.ReadSeeker) (bool, error) {
