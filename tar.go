@@ -38,7 +38,16 @@ type Tar struct {
 	// and extraction of archives, but may be slightly
 	// inefficient with lots and lots of files,
 	// especially on extraction.
+	//
+	// Its only taken in to account during archival if there
+	// is more than 1 directory.
 	ImplicitTopLevelFolder bool
+
+	// ForceImplicitTopLevelFolder will do the same as `ImplicitTopLevelFolder`
+	// except it will not take in to account any folder structure.
+	//
+	// It will force a top-level folder to be created.
+	ForceArchiveImplicitTopLevelFolder bool
 
 	// If true, errors encountered during reading
 	// or writing a single file will be logged and
@@ -99,7 +108,7 @@ func (t *Tar) Archive(sources []string, destination string) error {
 	defer t.Close()
 
 	var topLevelFolder string
-	if t.ImplicitTopLevelFolder && multipleTopLevels(sources) {
+	if (t.ImplicitTopLevelFolder && multipleTopLevels(sources)) || t.ForceArchiveImplicitTopLevelFolder {
 		topLevelFolder = folderNameFromFileName(destination)
 	}
 
