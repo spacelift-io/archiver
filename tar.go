@@ -323,7 +323,10 @@ func (t *Tar) writeWalk(source, topLevelFolder, destination string) error {
 			return nil
 		}
 
-		if info.Mode().IsRegular() || info.Mode().IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		if info.Mode().IsRegular() ||
+			info.Mode().IsDir() ||
+			info.Mode()&os.ModeSymlink != 0 ||
+			info.Mode()&os.ModeSocket != 0 {
 			if t.MatchFn != nil && !t.MatchFn(fpath) {
 				return nil
 			}
